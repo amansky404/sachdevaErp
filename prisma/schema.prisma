@@ -1,0 +1,286 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum UserStatus {
+  ACTIVE
+  INACTIVE
+  INVITED
+}
+
+enum StoreType {
+  COMPANY
+  FRANCHISE
+  WAREHOUSE
+}
+
+enum PaymentProvider {
+  STRIPE
+  RAZORPAY
+  CASHFREE
+  CUSTOM
+}
+
+model User {
+  id            String       @id @default(cuid())
+  email         String       @unique
+  phone         String?      @unique
+  name          String?
+  image         String?
+  password      String?
+  status        UserStatus   @default(ACTIVE)
+  locale        String?      @default("en")
+  timeZone      String?      @default("UTC")
+  lastLoginAt   DateTime?
+  roles         UserRole[]
+  stores        StoreUser[]
+  notifications NotificationSetting?
+  accounts      Account[]
+  sessions      Session[]
+  assignedPermissions RolePermission[] @relation("AssignedPermissions")
+  auditLogs     AuditLog[]
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+}
+
+model Role {
+  id          String          @id @default(cuid())
+  name        String          @unique
+  description String?
+  isDefault   Boolean         @default(false)
+  permissions RolePermission[]
+  users       UserRole[]
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+}
+
+model Permission {
+  id          String           @id @default(cuid())
+  code        String           @unique
+  module      String
+  description String?
+  roles       RolePermission[]
+  createdAt   DateTime         @default(now())
+  updatedAt   DateTime         @updatedAt
+}
+
+model RolePermission {
+  id            String      @id @default(cuid())
+  roleId       String
+  permissionId String
+  role         Role        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission   Permission  @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+  assignedById String?
+  assignedBy   User?       @relation("AssignedPermissions", fields: [assignedById], references: [id])
+  assignedAt   DateTime    @default(now())
+
+  @@unique([roleId, permissionId])
+}
+
+model UserRole {
+  id         String   @id @default(cuid())
+  userId     String
+  roleId     String
+  storeId    String?
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  role       Role     @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  store      Store?   @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  assignedAt DateTime @default(now())
+
+  @@unique([userId, roleId, storeId])
+}
+
+model Store {
+  id            String        @id @default(cuid())
+  code          String        @unique
+  name          String
+  type          StoreType     @default(COMPANY)
+  phone         String?
+  email         String?
+  addressLine1  String?
+  addressLine2  String?
+  city          String?
+  state         String?
+  country       String?       @default("IN")
+  postalCode    String?
+  currency      String        @default("INR")
+  timezone      String        @default("Asia/Kolkata")
+  isActive      Boolean       @default(true)
+  users         StoreUser[]
+  userRoles     UserRole[]
+  terminals     PosTerminal[]
+  inventories   Inventory[]
+  payments      PaymentConfiguration[]
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+}
+
+model StoreUser {
+  id        String   @id @default(cuid())
+  userId    String
+  storeId   String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  store     Store  @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  isPrimary Boolean @default(false)
+  joinedAt  DateTime @default(now())
+
+  @@unique([userId, storeId])
+}
+
+model PosTerminal {
+  id          String   @id @default(cuid())
+  storeId     String
+  identifier  String   @unique
+  name        String
+  lastSyncAt  DateTime?
+  isActive    Boolean  @default(true)
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model PaymentConfiguration {
+  id             String          @id @default(cuid())
+  storeId        String
+  provider       PaymentProvider
+  apiKey         String?
+  apiSecret      String?
+  merchantId     String?
+  metadata       Json?
+  isActive       Boolean         @default(true)
+  store          Store           @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+
+  @@unique([storeId, provider])
+}
+
+model Inventory {
+  id          String   @id @default(cuid())
+  storeId     String
+  itemId      String
+  quantity    Decimal  @default(0)
+  reserved    Decimal  @default(0)
+  store       Store    @relation(fields: [storeId], references: [id], onDelete: Cascade)
+  item        Item     @relation(fields: [itemId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@unique([storeId, itemId])
+}
+
+model Category {
+  id          String      @id @default(cuid())
+  name        String
+  slug        String      @unique
+  description String?
+  isActive    Boolean     @default(true)
+  parentId    String?
+  parent      Category?   @relation("CategoryHierarchy", fields: [parentId], references: [id], onDelete: SetNull)
+  children    Category[]  @relation("CategoryHierarchy")
+  items       Item[]
+  createdAt   DateTime    @default(now())
+  updatedAt   DateTime    @updatedAt
+}
+
+model Item {
+  id             String      @id @default(cuid())
+  sku            String      @unique
+  barcode        String?     @unique
+  name           String
+  description    String?
+  basePrice      Decimal     @default(0)
+  costPrice      Decimal     @default(0)
+  taxRate        Decimal     @default(0)
+  isSerialized   Boolean     @default(false)
+  trackInventory Boolean     @default(true)
+  categoryId     String?
+  category       Category?   @relation(fields: [categoryId], references: [id], onDelete: SetNull)
+  inventories    Inventory[]
+  createdAt      DateTime    @default(now())
+  updatedAt      DateTime    @updatedAt
+}
+
+model AuditLog {
+  id          String   @id @default(cuid())
+  userId      String?
+  storeId     String?
+  action      String
+  module      String
+  ipAddress   String?
+  userAgent   String?
+  metadata    Json?
+  createdAt   DateTime @default(now())
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+  store       Store?   @relation(fields: [storeId], references: [id], onDelete: SetNull)
+}
+
+model NotificationSetting {
+  id               String   @id @default(cuid())
+  userId           String   @unique
+  emailEnabled     Boolean  @default(true)
+  smsEnabled       Boolean  @default(false)
+  pushEnabled      Boolean  @default(true)
+  lowStockAlerts   Boolean  @default(true)
+  auditAlerts      Boolean  @default(true)
+  marketingOptIn   Boolean  @default(false)
+  user             User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+}
+
+model Account {
+  id                 String  @id @default(cuid())
+  userId             String
+  type               String
+  provider           String
+  providerAccountId  String
+  refresh_token      String? @db.Text
+  access_token       String? @db.Text
+  expires_at         Int?
+  token_type         String?
+  scope              String?
+  id_token           String? @db.Text
+  session_state      String?
+  user               User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model SyncQueue {
+  id          String   @id @default(cuid())
+  storeId     String?
+  terminalId  String?
+  entity      String
+  entityId    String
+  action      String
+  payload     Json
+  status      String   @default("pending")
+  error       String?
+  attemptedAt DateTime?
+  createdAt   DateTime @default(now())
+
+  store       Store?       @relation(fields: [storeId], references: [id], onDelete: SetNull)
+  terminal    PosTerminal? @relation(fields: [terminalId], references: [id], onDelete: SetNull)
+}
