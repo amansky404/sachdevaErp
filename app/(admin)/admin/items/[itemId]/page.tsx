@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { notFound, redirect } from 'next/navigation'
 
+import type { Decimal } from '@prisma/client/runtime/library'
+
 import { PERMISSIONS } from '@/lib/auth/permissions'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
@@ -28,7 +30,31 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
     redirect('/admin/items')
   }
 
-  const item = await prisma.item.findUnique({
+  type DecimalLike = number | string | bigint | Decimal
+
+  type ItemWithRelations = {
+    id: string
+    sku: string
+    barcode: string | null
+    name: string
+    description: string | null
+    basePrice: DecimalLike
+    costPrice: DecimalLike
+    taxRate: DecimalLike
+    trackInventory: boolean
+    isSerialized: boolean
+    updatedAt: Date
+    category: { id: string; name: string } | null
+    inventories: Array<{
+      id: string
+      quantity: DecimalLike
+      reserved: DecimalLike
+      updatedAt: Date
+      store: { id: string; name: string; code: string; city: string | null; state: string | null }
+    }>
+  }
+
+  const itemRecord = (await prisma.item.findUnique({
     where: { id: params.itemId },
     include: {
       category: {
@@ -54,11 +80,13 @@ export default async function ItemDetailPage({ params }: ItemDetailPageProps) {
         }
       }
     }
-  })
+  })) as ItemWithRelations | null
 
-  if (!item) {
+  if (!itemRecord) {
     notFound()
   }
+
+  const item = itemRecord
 
   const basePrice = Number(item.basePrice)
   const costPrice = Number(item.costPrice)

@@ -7,15 +7,15 @@ export const createItemSchema = z
     name: z.string().trim().min(1, 'Name is required').max(120, 'Name must be 120 characters or less'),
     description: z.string().trim().max(600, 'Description must be 600 characters or less').optional(),
     categoryId: z.string().cuid('Invalid category').optional().or(z.literal('')),
-    basePrice: z.coerce.number({ invalid_type_error: 'Base price must be a number' }).min(
+    basePrice: z.coerce.number().min(
       0,
       'Base price cannot be negative'
     ),
-    costPrice: z.coerce.number({ invalid_type_error: 'Cost price must be a number' }).min(
+    costPrice: z.coerce.number().min(
       0,
       'Cost price cannot be negative'
     ),
-    taxRate: z.coerce.number({ invalid_type_error: 'Tax rate must be a number' })
+    taxRate: z.coerce.number()
       .min(0, 'Tax rate cannot be negative')
       .max(100, 'Tax rate must be 100 or below'),
     trackInventory: z.boolean(),

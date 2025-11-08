@@ -1,8 +1,9 @@
 'use server'
 
-import { Prisma } from '@prisma/client'
 import { revalidatePath } from 'next/cache'
 import { redirect } from 'next/navigation'
+
+import { PrismaClientKnownRequestError } from '@prisma/client/runtime/library'
 
 import { PERMISSIONS } from '@/lib/auth/permissions'
 import { auth } from '@/lib/auth/server'
@@ -129,7 +130,7 @@ export async function createItemAction(prevState: CreateItemFormState, formData:
       }
     })
   } catch (error) {
-    if (error instanceof Prisma.PrismaClientKnownRequestError && error.code === 'P2002') {
+    if (error instanceof PrismaClientKnownRequestError && error.code === 'P2002') {
       const target = Array.isArray(error.meta?.target) ? error.meta?.target[0] : undefined
       if (target === 'sku' || target === 'barcode') {
         return {

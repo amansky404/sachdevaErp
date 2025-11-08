@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import type { Decimal } from '@prisma/client/runtime/library'
+
 import { PERMISSIONS } from '@/lib/auth/permissions'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
@@ -25,7 +27,32 @@ export default async function AdminInventoryPage() {
 
   const canAdjust = permissions.includes(PERMISSIONS.INVENTORY_ADJUST)
 
-  const stores = await prisma.store.findMany({
+  type DecimalLike = number | string | bigint | Decimal
+
+  type InventoryWithItem = {
+    id: string
+    itemId: string
+    quantity: DecimalLike
+    reserved: DecimalLike
+    item: {
+      id: string
+      name: string
+      sku: string | null
+      trackInventory: boolean
+      basePrice: DecimalLike | null
+    } | null
+  }
+
+  type StoreWithInventory = {
+    id: string
+    code: string
+    name: string
+    city: string | null
+    state: string | null
+    inventories: InventoryWithItem[]
+  }
+
+  const stores = (await prisma.store.findMany({
     include: {
       inventories: {
         include: {
@@ -42,7 +69,7 @@ export default async function AdminInventoryPage() {
       }
     },
     orderBy: { name: 'asc' }
-  })
+  })) as StoreWithInventory[]
 
   const rows: StoreInventoryRow[] = stores.map(store => {
     const trackedInventories = store.inventories.filter(inventory => inventory.item?.trackInventory)

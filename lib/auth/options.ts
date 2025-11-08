@@ -1,5 +1,6 @@
 import { PrismaAdapter } from '@auth/prisma-adapter'
-import type { NextAuthConfig } from 'next-auth'
+import type { Prisma } from '@prisma/client'
+import type { NextAuthOptions } from 'next-auth'
 import CredentialsProvider from 'next-auth/providers/credentials'
 import GoogleProvider from 'next-auth/providers/google'
 import { compare } from 'bcryptjs'
@@ -7,7 +8,7 @@ import { compare } from 'bcryptjs'
 import { prisma } from '../prisma'
 import { DEFAULT_ROLES } from './permissions'
 
-export const authOptions: NextAuthConfig = {
+export const authOptions: NextAuthOptions = {
   adapter: PrismaAdapter(prisma),
   session: {
     strategy: 'database'
@@ -71,7 +72,7 @@ export const authOptions: NextAuthConfig = {
       })
 
       if (existingRoles.length === 0) {
-        await prisma.$transaction(async tx => {
+        await prisma.$transaction(async (tx: Prisma.TransactionClient) => {
           for (const role of Object.values(DEFAULT_ROLES)) {
             const createdRole = await tx.role.create({
               data: {
@@ -124,7 +125,11 @@ export const authOptions: NextAuthConfig = {
 
       const permissions = new Set<string>()
 
-      roles.forEach(({ role }) => {
+      const rolesWithPermissions = roles as Array<{
+        role: { permissions: Array<{ permission: { code: string } }> }
+      }>
+
+      rolesWithPermissions.forEach(({ role }) => {
         role.permissions.forEach(({ permission }) => permissions.add(permission.code))
       })
 

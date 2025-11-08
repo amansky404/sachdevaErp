@@ -33,7 +33,18 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
   const query = searchParams?.q?.trim() ?? ''
   const created = searchParams?.created === '1'
 
-  const categories = await prisma.category.findMany({
+  type CategoryWithRelations = {
+    id: string
+    name: string
+    slug: string
+    description: string | null
+    isActive: boolean
+    updatedAt: Date
+    parent: { id: string; name: string } | null
+    _count: { items: number }
+  }
+
+  const categories = (await prisma.category.findMany({
     where: query
       ? {
           OR: [
@@ -47,7 +58,7 @@ export default async function CategoriesPage({ searchParams }: CategoriesPagePro
       _count: { select: { items: true } }
     },
     orderBy: [{ updatedAt: 'desc' }, { name: 'asc' }]
-  })
+  })) as CategoryWithRelations[]
 
   const rows: CategoryRow[] = categories.map(category => ({
     id: category.id,

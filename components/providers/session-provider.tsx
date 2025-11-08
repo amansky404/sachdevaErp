@@ -6,7 +6,7 @@ import type { ReactNode } from 'react'
 
 type Props = {
   children: ReactNode
-  session?: Session
+  session?: Session | null
 }
 
 export function AuthSessionProvider({ children, session }: Props) {

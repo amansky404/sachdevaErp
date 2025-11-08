@@ -1,6 +1,8 @@
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
 
+import type { Decimal } from '@prisma/client/runtime/library'
+
 import { PERMISSIONS } from '@/lib/auth/permissions'
 import { auth } from '@/lib/auth/server'
 import { prisma } from '@/lib/prisma'
@@ -33,7 +35,28 @@ export default async function AdminItemsPage({ searchParams }: ItemsPageProps) {
   const query = searchParams?.q?.trim() ?? ''
   const created = searchParams?.created === '1'
 
-  const items = await prisma.item.findMany({
+  type DecimalLike = number | string | bigint | Decimal
+
+  type ItemWithCategoryAndInventory = {
+    id: string
+    sku: string
+    name: string
+    barcode: string | null
+    basePrice: DecimalLike
+    costPrice: DecimalLike
+    taxRate: DecimalLike
+    trackInventory: boolean
+    isSerialized: boolean
+    updatedAt: Date
+    category: { id: string; name: string } | null
+    inventories: Array<{
+      id: string
+      quantity: DecimalLike
+      reserved: DecimalLike
+    }>
+  }
+
+  const items = (await prisma.item.findMany({
     where: query
       ? {
           OR: [
@@ -55,7 +78,7 @@ export default async function AdminItemsPage({ searchParams }: ItemsPageProps) {
     orderBy: {
       updatedAt: 'desc'
     }
-  })
+  })) as ItemWithCategoryAndInventory[]
 
   const rows: ItemRow[] = items.map(item => ({
     id: item.id,
